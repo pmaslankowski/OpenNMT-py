@@ -144,6 +144,48 @@ class Translator(object):
                 "scores": [],
                 "log_probs": []}
 
+    def score_target(self,
+              src_path=None,
+              src_data_iter=None,
+              tgt_path=None,
+              tgt_data_iter=None,
+              src_dir=None,
+              batch_size=None):
+        assert src_data_iter is not None or src_path is not None
+        if batch_size is None:
+            raise ValueError("batch_size must be set")
+        data = inputters. \
+            build_dataset(self.fields,
+                          self.data_type,
+                          src_path=src_path,
+                          src_data_iter=src_data_iter,
+                          tgt_path=tgt_path,
+                          tgt_data_iter=tgt_data_iter,
+                          src_dir=src_dir,
+                          sample_rate=self.sample_rate,
+                          window_size=self.window_size,
+                          window_stride=self.window_stride,
+                          window=self.window,
+                          use_filter_pred=self.use_filter_pred,
+                          image_channel_size=self.image_channel_size)
+
+        if self.cuda:
+            cur_device = "cuda"
+        else:
+            cur_device = "cpu"
+
+        data_iter = inputters.OrderedIterator(
+            dataset=data, device=cur_device,
+            batch_size=batch_size, train=False, sort=False,
+            sort_within_batch=True, shuffle=False)
+
+        gold_scores = []
+        for batch in data_iter:
+            scores = self._run_target(batch, data)
+            gold_scores += [el[0].numpy()[()] for el in sorted(zip(scores, batch.indices.data), key=lambda x: x[1])]
+
+        return gold_scores
+
     def translate(self,
                   src_path=None,
                   src_data_iter=None,
@@ -506,6 +548,7 @@ class Translator(object):
 
         return results
 
+    # [pma]: TODO: try to understand this procedure
     def _translate_batch(self, batch, data):
         # (0) Prep each of the components of the search.
         # And helper method for reducing verbosity.
@@ -721,3 +764,4 @@ class Translator(object):
             stdin=self.out_file).decode("utf-8")
         msg = res.strip()
         return msg
+    

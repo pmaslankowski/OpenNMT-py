@@ -2,7 +2,7 @@ from __future__ import division
 import torch
 from onmt.translate import penalties
 
-
+# [pma]: po co tu przekazujemy attention?
 class Beam(object):
     """
     Class for managing the internals of the beam search process.
@@ -101,6 +101,7 @@ class Beam(object):
                     beam_scores[i] = -1e20
 
             # Block ngram repeats
+            #[pma]: co ten kawałek kodu robi?
             if self.block_ngram_repeat > 0:
                 ngrams = []
                 le = len(self.next_ys)
