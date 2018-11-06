@@ -18,8 +18,8 @@ import onmt.opts as opts
 import onmt.decoders.ensemble
 
 
-def build_translator(opt, report_score=True, logger=None, out_file=None):
-    if out_file is None:
+def build_translator(opt, report_score=True, logger=None, out_file=None, create_out_file = True):
+    if out_file is None and create_out_file:
         out_file = codecs.open(opt.output, 'w+', 'utf-8')
 
     dummy_parser = argparse.ArgumentParser(description='train.py')
