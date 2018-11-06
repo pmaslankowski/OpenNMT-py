@@ -5,8 +5,8 @@ class AttrDict(dict):
         self.__dict__ = self
 
 
-MODEL_PATH = '../data/transformer/averaged-10-epoch.pt'
-SENTENCEPIECE_MODEL_PATH = '../data/transformer/sentencepiece.model'
+MODEL_PATH = '/home/pma/Dropbox/Documents/Studia/Semestr_7/Praca_Inzynierska/OpenNMT-py/data/transformer/averaged-10-epoch.pt'
+SENTENCEPIECE_MODEL_PATH = '/home/pma/Dropbox/Documents/Studia/Semestr_7/Praca_Inzynierska/OpenNMT-py/data/transformer/sentencepiece.model'
 SOURCE_PATH = 'example.atok'
 TARGET_PATH = 'example_target.atok'
 OUTPUT_PATH = 'example_output.atok'
