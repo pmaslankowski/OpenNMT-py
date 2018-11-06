@@ -1,13 +1,14 @@
 import argparse
+import math
+import random
+import string
 
+import numpy as np
 import sentencepiece as spm
 
 import onmt
-from onmt.translate.translator import build_translator
 import onmt.opts as opts
-import random
-import string
-import math
+from onmt.translate.translator import build_translator
 
 
 class AttrDict(dict):
@@ -27,10 +28,20 @@ OPT = AttrDict({
             'dynamic_dict': False, 'share_vocab': False, 'fast': False, 'beam_size': 5, 'min_length': 0, 'max_length': 100,
             'max_sent_length': None, 'stepwise_penalty': False, 'length_penalty': 'none', 'coverage_penalty': 'none',
             'alpha': 0.0, 'beta': -0.0, 'block_ngram_repeat': 0, 'ignore_when_blocking': [], 'replace_unk': False,
-            'verbose': True, 'log_file': '', 'attn_debug': False, 'dump_beam': '', 'n_best': 1, 'batch_size': 30, 'gpu': -1,
+            'verbose': True, 'log_file': '', 'attn_debug': False, 'dump_beam': '', 'n_best': 1, 'batch_size': 100, 'gpu': -1,
             'sample_rate': 16000, 'window_size': 0.02, 'window_stride': 0.01, 'window': 'hamming', 'image_channel_size': 3
         })
 
+
+def load_vocabulary():
+    dummy_parser = argparse.ArgumentParser(description='train.py')
+    opts.model_opts(dummy_parser)
+    dummy_opt = dummy_parser.parse_known_args([])[0]
+
+    fields, _, _ = \
+        onmt.model_builder.load_test_model(OPT, dummy_opt.__dict__)
+
+    return fields['tgt'].vocab
 
 class TranslationScorer(object):
 
@@ -48,9 +59,9 @@ class TranslationScorer(object):
                                        tgt_data_iter=[' '.join(tokenized_german_translation)],
                                        batch_size=self.opt.batch_size)
 
-    def score_tokenized_texts(self, english_tok_seq, german_tok_seq):
-        return self.translator.score_target(src_data_iter=[' '.join(english_tok_seq)],
-                                            tgt_data_iter=[' '.join(german_tok_seq)],
+    def score_tokenized_texts(self, english_tok_seq_gen, german_tok_seq_gen):
+        return self.translator.score_target(src_data_iter=[' '.join(english_tok_seq) for english_tok_seq in english_tok_seq_gen],
+                                            tgt_data_iter=[' '.join(german_tok_seq) for german_tok_seq in german_tok_seq_gen],
                                             batch_size=self.opt.batch_size)
 
     def score(self):
@@ -59,6 +70,21 @@ class TranslationScorer(object):
                              src_dir=self.opt.src_dir,
                              batch_size=self.opt.batch_size)
 
+    def next_word_probabilities(self, english_tok_seq_gen, german_tok_seq_gen):
+        return self.translator.next_word_probabilities(
+            src_data_iter=[' '.join(english_tok_seq) for english_tok_seq in english_tok_seq_gen],
+            tgt_data_iter=[' '.join(german_tok_seq) for german_tok_seq in german_tok_seq_gen],
+            batch_size=self.opt.batch_size)
+
+
+class Tokenizer(object):
+
+    def __init__(self):
+        self.sentencepiece_tokenizer = spm.SentencePieceProcessor()
+        self.sentencepiece_tokenizer.Load(SENTENCEPIECE_MODEL_PATH)
+
+    def tokenize(self, text):
+        return self.sentencepiece_tokenizer.EncodeAsPieces(text)
 
 
 class SimulatedAnnealingOptimizer(object):
@@ -66,28 +92,18 @@ class SimulatedAnnealingOptimizer(object):
     def __init__(self, english_text):
         self.tokenize_english_text(english_text)
         self.opt = OPT
+        self.specials = ['<blank>', '<unk>', 0, '<s>', '</s>']
         self.scorer = TranslationScorer()
-        self.energy = lambda x: self.scorer.score_tokenized_texts(self.english_tok_seq, x)[0]
+        self.energy = lambda x: self.scorer.score_tokenized_texts([self.english_tok_seq for _ in range(len(x))], x)
         self.temperature = lambda x: math.exp(-x)
         self.k_max = 10000
         self.possible_chars = [ch for ch in string.ascii_letters] + [' ']
-        self.load_vocabulary()
+        self.vocab = load_vocabulary()
 
     def tokenize_english_text(self, english_text):
         sentencepiece_processor = spm.SentencePieceProcessor()
         sentencepiece_processor.Load(SENTENCEPIECE_MODEL_PATH)
         self.english_tok_seq = sentencepiece_processor.EncodeAsPieces(english_text)
-
-    def load_vocabulary(self):
-        dummy_parser = argparse.ArgumentParser(description='train.py')
-        opts.model_opts(dummy_parser)
-        dummy_opt = dummy_parser.parse_known_args([])[0]
-
-        fields, _, _= \
-            onmt.model_builder.load_test_model(self.opt, dummy_opt.__dict__)
-
-        self.vocab = fields['tgt'].vocab
-
 
     def optimize(self):
         state = [random.choice(self.vocab.itos)]
@@ -95,12 +111,15 @@ class SimulatedAnnealingOptimizer(object):
         old_energy = self.energy(state)
         for k in range(self.k_max):
             T = self.temperature(float(k) / self.k_max)
-            next_word = random.choice(self.vocab.itos)
-            neighbor_state = state + [next_word]
-            if random.uniform(0, 1) <= 0.5:
-                neighbor_state = state[:-1] + [next_word]
+            neighbor_states = [state + [next_token] for next_token in self.vocab.itos if next_token not in self.specials] + \
+                              [state[:-1] + [next_token] for next_token in self.vocab.itos if next_token not in self.specials]
 
-            curr_energy = self.energy(neighbor_state)
+            minibatch = [random.choice(neighbor_states) for _ in range(1000)]
+            curr_energies = np.array(self.energy(minibatch))
+            imax = curr_energies.argmax()
+            neighbor_state = minibatch[imax]
+            curr_energy = curr_energies[imax]
+
             delta_energy = curr_energy - old_energy
             if delta_energy > 0:
                 state = neighbor_state
@@ -116,10 +135,19 @@ class SimulatedAnnealingOptimizer(object):
 
 
 if __name__ == '__main__':
-    # scorer = TranslationScorer()
+    scorer = TranslationScorer()
     # score = scorer.score_texts('I think that machine translation is very interesting subject.',
     #                      'Ich denke, dass maschinelle Übersetzung ein sehr interessantes Thema ist.')
     # print(score)
-    optimizer = SimulatedAnnealingOptimizer('I think that machine translation is very interesting subject.')
-    res = optimizer.optimize()
-    print(res)
+
+    vocab = load_vocabulary()
+    tokenizer = Tokenizer()
+    english_tokens = tokenizer.tokenize('I think that machine translation is very interesting subject.')
+    german_tokens = tokenizer.tokenize('Ich denke, dass maschinelle Übersetzung ein sehr')
+    next_word_probs = scorer.next_word_probabilities([english_tokens], [german_tokens])
+    val, ind = next_word_probs.topk(1)
+    print(vocab.itos[ind.view(-1)])
+
+    # optimizer = SimulatedAnnealingOptimizer('I think that machine translation is very interesting subject.')
+    # res = optimizer.optimize()
+    # print(res)

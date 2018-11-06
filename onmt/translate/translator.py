@@ -186,6 +186,43 @@ class Translator(object):
 
         return gold_scores
 
+    def next_word_probabilities(self,
+              src_path=None,
+              src_data_iter=None,
+              tgt_path=None,
+              tgt_data_iter=None,
+              src_dir=None,
+              batch_size=None):
+        assert src_data_iter is not None or src_path is not None
+        if batch_size is None:
+            raise ValueError("batch_size must be set")
+        data = inputters. \
+            build_dataset(self.fields,
+                          self.data_type,
+                          src_path=src_path,
+                          src_data_iter=src_data_iter,
+                          tgt_path=tgt_path,
+                          tgt_data_iter=tgt_data_iter,
+                          src_dir=src_dir,
+                          sample_rate=self.sample_rate,
+                          window_size=self.window_size,
+                          window_stride=self.window_stride,
+                          window=self.window,
+                          use_filter_pred=self.use_filter_pred,
+                          image_channel_size=self.image_channel_size)
+
+        if self.cuda:
+            cur_device = "cuda"
+        else:
+            cur_device = "cpu"
+
+        data_iter = inputters.OrderedIterator(
+            dataset=data, device=cur_device,
+            batch_size=batch_size, train=False, sort=False,
+            sort_within_batch=True, shuffle=False)
+
+        return torch.cat([self._run_next_word_probabilities(batch, data) for batch in data_iter], 0)
+
     def translate(self,
                   src_path=None,
                   src_data_iter=None,
@@ -695,6 +732,26 @@ class Translator(object):
             ret["scores"].append(scores)
             ret["attention"].append(attn)
         return ret
+
+    def _run_next_word_probabilities(self, batch, data):
+        data_type = data.data_type
+        _, src_lengths = batch.src
+
+        src = inputters.make_features(batch, 'src', data_type)
+        tgt_in = inputters.make_features(batch, 'tgt')[:-1]
+
+        #  (1) run the encoder on the src
+        enc_states, memory_bank, src_lengths \
+            = self.model.encoder(src, src_lengths)
+        dec_states = \
+            self.model.decoder.init_decoder_state(src, memory_bank, enc_states)
+
+        dec_out, _, _ = self.model.decoder(
+            tgt_in, memory_bank, dec_states, memory_lengths=src_lengths)
+
+        # (2) take the last decoder output - decoder output for last word in given sequence
+        next_word_probs = self.model.generator.forward(dec_out[-1])
+        return next_word_probs
 
     def _run_target(self, batch, data):
         data_type = data.data_type
