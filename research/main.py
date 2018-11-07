@@ -1,6 +1,5 @@
-from research.greedy_optimizer import GreedyOptimizer
+from research.beam_optimizer import BeamOptimizer
 from research.scorer import Scorer
-from research.simulated_annealing_optimizer import SimulatedAnnealingOptimizer
 from research.utils import load_vocabulary, Tokenizer
 
 if __name__ == '__main__':
@@ -26,7 +25,7 @@ if __name__ == '__main__':
     # print('Unfinished translation:', unfinished_translation )
     # print('Top 3 next tokens: ', vocab.itos[ind[0,0].view(-1)], vocab.itos[ind[0,1].view(-1)], vocab.itos[ind[0,2].view(-1)])
 
-    optimizer = GreedyOptimizer(english_sentence)
+    optimizer = BeamOptimizer(english_sentence)
     print('Optimization starts...')
     res = optimizer.optimize()
     print(res)
