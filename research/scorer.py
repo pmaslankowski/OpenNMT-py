@@ -32,3 +32,10 @@ class Scorer(object):
             src_data_iter=[' '.join(english_tok_seq) for english_tok_seq in english_tok_seq_gen],
             tgt_data_iter=[' '.join(german_tok_seq) for german_tok_seq in german_tok_seq_gen],
             batch_size=consts.OPT.batch_size)
+
+    def score_probabilities_for_each_word(self, english_tok_seq, german_tok_seq):
+        # [pma]: TODO: add support for batches
+        return self.translator.score_probs_for_each_word(
+            src_data_iter=[' '.join(english_tok_seq)],
+            tgt_data_iter=[' '.join(german_tok_seq)],
+            batch_size=consts.OPT.batch_size)

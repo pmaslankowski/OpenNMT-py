@@ -7,6 +7,7 @@ import os
 import math
 
 import torch
+import numpy as np
 
 from itertools import count
 from onmt.utils.misc import tile
@@ -185,6 +186,46 @@ class Translator(object):
             gold_scores += [el[0].numpy()[()] for el in sorted(zip(scores, batch.indices.data), key=lambda x: x[1])]
 
         return gold_scores
+
+    def score_probs_for_each_word(self,
+              src_path=None,
+              src_data_iter=None,
+              tgt_path=None,
+              tgt_data_iter=None,
+              src_dir=None,
+              batch_size=None):
+        assert src_data_iter is not None or src_path is not None
+        if batch_size is None:
+            raise ValueError("batch_size must be set")
+        data = inputters. \
+            build_dataset(self.fields,
+                          self.data_type,
+                          src_path=src_path,
+                          src_data_iter=src_data_iter,
+                          tgt_path=tgt_path,
+                          tgt_data_iter=tgt_data_iter,
+                          src_dir=src_dir,
+                          sample_rate=self.sample_rate,
+                          window_size=self.window_size,
+                          window_stride=self.window_stride,
+                          window=self.window,
+                          use_filter_pred=self.use_filter_pred,
+                          image_channel_size=self.image_channel_size)
+
+        if self.cuda:
+            cur_device = "cuda"
+        else:
+            cur_device = "cpu"
+
+        data_iter = inputters.OrderedIterator(
+            dataset=data, device=cur_device,
+            batch_size=batch_size, train=False, sort=False,
+            sort_within_batch=True, shuffle=False)
+
+        for batch in data_iter:
+            # TODO: add support for batches
+            scores = self._run_probabilities_of_all_words_on_target(batch, data)
+            return scores[0]
 
     def next_word_probabilities(self,
               src_path=None,
@@ -786,6 +827,33 @@ class Translator(object):
             scores.masked_fill_(tgt.eq(tgt_pad), 0)
             gold_scores += scores.view(-1)
         return gold_scores
+
+    def _run_probabilities_of_all_words_on_target(self, batch, data):
+        data_type = data.data_type
+        _, src_lengths = batch.src
+
+        src = inputters.make_features(batch, 'src', data_type)
+        tgt_in = inputters.make_features(batch, 'tgt')[:-1]
+
+        #  (1) run the encoder on the src
+        enc_states, memory_bank, src_lengths \
+            = self.model.encoder(src, src_lengths)
+        dec_states = \
+            self.model.decoder.init_decoder_state(src, memory_bank, enc_states)
+
+        #  (2) if a target is specified, compute the 'goldScore'
+        #  (i.e. log likelihood) of the target under the model
+        tt = torch.cuda if self.cuda else torch
+        dec_out, _, _ = self.model.decoder(
+            tgt_in, memory_bank, dec_states, memory_lengths=src_lengths)
+
+        all_probs = []
+        for dec, tgt in zip(dec_out, batch.tgt[1:].data):
+            # Log prob of each word.
+            out = self.model.generator.forward(dec)
+            all_probs.append(out.detach().numpy()[:, np.newaxis, :])
+
+        return np.concatenate(all_probs, axis=1)
 
     def _report_score(self, name, score_total, words_total):
         if words_total == 0:
