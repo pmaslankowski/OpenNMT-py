@@ -2,6 +2,7 @@ import argparse
 import onmt
 import onmt.opts as opts
 import sentencepiece as spm
+from copy import deepcopy
 from research import consts
 
 
@@ -24,3 +25,63 @@ class Tokenizer(object):
 
     def tokenize(self, text):
         return self.sentencepiece_tokenizer.EncodeAsPieces(text)
+
+
+class Aligner(object):
+
+    def __init__(self, debug = False):
+        self.add_cost = 1
+        self.subst_cost = 1
+        self.del_cost = 1
+        self.debug = debug
+
+    def align(self, sen1, sen2):
+        if len(sen1) < len(sen2):
+            sen1, sen2 = sen2, sen1
+
+        n, m = len(sen1), len(sen2)
+        dp = [[-1 for _ in range(m+1)] for _ in range(n+1)]
+        pred = {}
+        for i in range(n+1):
+            dp[i][0] = self.del_cost * i
+        for i in range(m+1):
+            dp[0][i] = self.del_cost * i
+
+        for i in range(1, n+1):
+            for j in range(1, m+1):
+                if sen1[i-1] == sen2[j-1]:
+                    dp[i][j] = dp[i-1][j-1]
+                    pred[(i, j)] = (i-1, j-1, 'NOP')
+                else:
+                    add = dp[i][j-1] + self.add_cost, i, j-1, f'ADD({sen2[j-1]})'
+                    subst = dp[i - 1][j - 1] + self.subst_cost, i-1, j-1, f'SUBST({sen1[i-1]} -> {sen2[j-1]})'
+                    delete = dp[i-1][j] + self.del_cost, i-1, j, f'DEL({sen1[i-1]})'
+
+                    # we select state with minimum cost
+                    cost, pi, pj, op = min([add, subst, delete], key=lambda x: x[0])
+                    dp[i][j] = cost
+                    pred[(i, j)] = (pi, pj, op)
+
+        ops = []
+        current = (n, m)
+        while current in pred:
+            i, j, op = pred[current]
+            ops += [op]
+            current = i, j
+        ops.reverse()
+
+        res1 = deepcopy(sen1)
+        res2 = deepcopy(sen2)
+        PLACEHOLDER = '[PLACEHOLDER]'
+        for i, op in enumerate(ops):
+            if op.startswith('ADD'):
+                res1.insert(i, PLACEHOLDER)
+            elif op.startswith('DEL'):
+                res2.insert(i, PLACEHOLDER)
+
+        if self.debug:
+            print(f'Allignment cost = {dp[n-1][m-1]}')
+            print(f'Ops: ', ' '.join(ops))
+
+        return res1, res2
+
