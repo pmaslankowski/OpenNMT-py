@@ -36,9 +36,6 @@ class Aligner(object):
         self.debug = debug
 
     def align(self, sen1, sen2):
-        if len(sen1) < len(sen2):
-            sen1, sen2 = sen2, sen1
-
         n, m = len(sen1), len(sen2)
         dp = [[-1 for _ in range(m+1)] for _ in range(n+1)]
         pred = {}
