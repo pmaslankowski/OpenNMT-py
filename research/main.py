@@ -21,13 +21,13 @@ if __name__ == '__main__':
     # print('Log likehood of translation:', score[0])
     # print()
     #
-    unfinished_translation = 'Ich denke, dass maschinelle Übersetzung ein sehr'
-    english_tokens = tokenizer.tokenize(english_sentence)
-    german_tokens = tokenizer.tokenize(unfinished_translation)
-    next_word_probs = scorer.next_word_probabilities([english_tokens], [german_tokens])
-    val, ind = next_word_probs.topk(3)
-    print('Unfinished translation:', unfinished_translation )
-    print('Top 3 next tokens: ', vocab.itos[ind[0,0].view(-1)], vocab.itos[ind[0,1].view(-1)], vocab.itos[ind[0,2].view(-1)])
+    # unfinished_translation = 'Ich denke, dass maschinelle Übersetzung ein sehr'
+    # english_tokens = tokenizer.tokenize(english_sentence)
+    # german_tokens = tokenizer.tokenize(unfinished_translation)
+    # next_word_probs = scorer.next_word_probabilities([english_tokens], [german_tokens])
+    # val, ind = next_word_probs.topk(3)
+    # print('Unfinished translation:', unfinished_translation )
+    # print('Top 3 next tokens: ', vocab.itos[ind[0,0].view(-1)], vocab.itos[ind[0,1].view(-1)], vocab.itos[ind[0,2].view(-1)])
 
     # optimizer = BeamOptimizer(english_sentence)
     # print('Optimization starts...')
@@ -44,3 +44,17 @@ if __name__ == '__main__':
     #     print('OK')
     # else:
     #     print('FAIL')
+
+
+    # relaxation:
+    unfinished_translation = 'Ich'
+    english_tokens = tokenizer.tokenize(english_sentence)
+    german_tokens = tokenizer.tokenize(unfinished_translation)
+    german_vec = torch.zeros(len(vocab.itos), 1)
+    german_vec[115,0] = 1.
+
+    next_word_probs = scorer.next_word_probabilities([english_tokens], [german_vec], relaxed=True)
+    print(next_word_probs)
+
+    next_word_probs2 = scorer.next_word_probabilities([english_tokens], [german_tokens], relaxed=False)
+    print(next_word_probs2)

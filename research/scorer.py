@@ -27,11 +27,16 @@ class Scorer(object):
                              src_dir=consts.OPT.src_dir,
                              batch_size=consts.OPT.batch_size)
 
-    def next_word_probabilities(self, english_tok_seq_gen, german_tok_seq_gen):
+    def next_word_probabilities(self, english_tok_seq_gen, german_tok_seq_gen, relaxed=False):
+        tgt_data = None
+        if relaxed:
+            tgt_data = german_tok_seq_gen
+        else:
+            tgt_data = [' '.join(german_tok_seq) for german_tok_seq in german_tok_seq_gen]
         return self.translator.next_word_probabilities(
             src_data_iter=[' '.join(english_tok_seq) for english_tok_seq in english_tok_seq_gen],
-            tgt_data_iter=[' '.join(german_tok_seq) for german_tok_seq in german_tok_seq_gen],
-            batch_size=consts.OPT.batch_size)
+            tgt_data_iter=tgt_data,
+            batch_size=consts.OPT.batch_size,relaxed=relaxed)
 
     def score_probabilities_for_each_word(self, english_tok_seq, german_tok_seq):
         # [pma]: TODO: add support for batches

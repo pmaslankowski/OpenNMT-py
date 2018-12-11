@@ -234,7 +234,8 @@ class Translator(object):
               tgt_path=None,
               tgt_data_iter=None,
               src_dir=None,
-              batch_size=None):
+              batch_size=None,
+              relaxed=False):
         assert src_data_iter is not None or src_path is not None
         if batch_size is None:
             raise ValueError("batch_size must be set")
@@ -251,7 +252,8 @@ class Translator(object):
                           window_stride=self.window_stride,
                           window=self.window,
                           use_filter_pred=self.use_filter_pred,
-                          image_channel_size=self.image_channel_size)
+                          image_channel_size=self.image_channel_size,
+                          relaxed=relaxed)
 
         if self.cuda:
             cur_device = "cuda"
@@ -263,7 +265,7 @@ class Translator(object):
             batch_size=batch_size, train=False, sort=False,
             sort_within_batch=True, shuffle=False)
 
-        return torch.cat([self._run_next_word_probabilities(batch, data) for batch in data_iter], 0)
+        return torch.cat([self._run_next_word_probabilities(batch, data, relaxed) for batch in data_iter], 0)
 
     def translate(self,
                   src_path=None,
@@ -775,16 +777,18 @@ class Translator(object):
             ret["attention"].append(attn)
         return ret
 
-    def _run_next_word_probabilities(self, batch, data):
+    def _run_next_word_probabilities(self, batch, data, relaxed):
         data_type = data.data_type
         _, src_lengths = batch.src
 
         src = inputters.make_features(batch, 'src', data_type)
-        tgt_in = inputters.make_features(batch, 'tgt')[:-1]
-
+        tgt_in = None
         one_hot_encoder = OneHotEncoder(self.fields['tgt'].vocab)
         src = one_hot_encoder.encode(src)
-        tgt_in = one_hot_encoder.encode(tgt_in)
+        if not relaxed:
+            tgt_in = one_hot_encoder.encode(inputters.make_features(batch, 'tgt')[:-1])
+        else:
+            tgt_in = inputters.make_features(batch, 'tgt')
 
         #  (1) run the encoder on the src
         enc_states, memory_bank, src_lengths \

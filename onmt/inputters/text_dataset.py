@@ -13,6 +13,7 @@ import torchtext
 from onmt.inputters.dataset_base import (DatasetBase, UNK_WORD,
                                          PAD_WORD, BOS_WORD, EOS_WORD)
 from onmt.utils.misc import aeq
+from research.utils import RelaxedTargetField
 
 
 class TextDataset(DatasetBase):
@@ -40,7 +41,7 @@ class TextDataset(DatasetBase):
     def __init__(self, fields, src_examples_iter, tgt_examples_iter,
                  num_src_feats=0, num_tgt_feats=0,
                  src_seq_length=0, tgt_seq_length=0,
-                 dynamic_dict=True, use_filter_pred=True):
+                 dynamic_dict=True, use_filter_pred=True, relaxed=False):
         self.data_type = 'text'
 
         # self.src_vocabs: mutated in dynamic_dict, used in
@@ -64,10 +65,18 @@ class TextDataset(DatasetBase):
 
         # Peek at the first to see which fields are used.
         ex, examples_iter = self._peek(examples_iter)
-        keys = ex.keys()
+        keys = list(ex.keys())
 
         out_fields = [(k, fields[k]) if k in fields else (k, None)
-                      for k in keys]
+                      for k in keys if k != 'tgt']
+        if not relaxed:
+            out_fields.append(('tgt', fields['tgt'] if 'tgt' in fields else None))
+        else:
+            out_fields.append(('tgt', RelaxedTargetField()))
+
+        out_fields.sort(key=lambda x: x[0])
+        keys.sort()
+
         example_values = ([ex[k] for k in keys] for ex in examples_iter)
 
         # If out_examples is a generator, we need to save the filter_pred
@@ -129,7 +138,7 @@ class TextDataset(DatasetBase):
         return scores
 
     @staticmethod
-    def make_text_examples_nfeats_tpl(text_iter, text_path, truncate, side):
+    def make_text_examples_nfeats_tpl(text_iter, text_path, truncate, side, relaxed=False):
         """
         Args:
             text_iter(iterator): an iterator (or None) that we can loop over
@@ -154,7 +163,7 @@ class TextDataset(DatasetBase):
         # All examples have same number of features, so we peek first one
         # to get the num_feats.
         examples_nfeats_iter = \
-            TextDataset.make_examples(text_iter, truncate, side)
+            TextDataset.make_examples(text_iter, truncate, side, relaxed=relaxed)
 
         first_ex = next(examples_nfeats_iter)
         num_feats = first_ex[1]
@@ -166,7 +175,7 @@ class TextDataset(DatasetBase):
         return (examples_iter, num_feats)
 
     @staticmethod
-    def make_examples(text_iter, truncate, side):
+    def make_examples(text_iter, truncate, side, relaxed=False):
         """
         Args:
             text_iter (iterator): iterator of text sequences
@@ -177,12 +186,17 @@ class TextDataset(DatasetBase):
             (word, features, nfeat) triples for each line.
         """
         for i, line in enumerate(text_iter):
-            line = line.strip().split()
-            if truncate:
-                line = line[:truncate]
+            if not relaxed:
+                line = line.strip().split()
+                if truncate:
+                    line = line[:truncate]
 
-            words, feats, n_feats = \
-                TextDataset.extract_text_features(line)
+                words, feats, n_feats = \
+                    TextDataset.extract_text_features(line)
+            else:
+                words = tuple(line.transpose(0, 1))
+                feats = []
+                n_feats = 0
 
             example_dict = {side: words, "indices": i}
             if feats:

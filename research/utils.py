@@ -96,3 +96,19 @@ class OneHotEncoder(object):
         res.scatter_(3, X.unsqueeze(2), 1)
         return res
 
+
+class RelaxedTargetField(object):
+
+    def __init__(self):
+        self.is_target = True
+        vocab_size = 31538
+        tok_begin_idx = 2
+        self.tok_begin_vec = torch.zeros(vocab_size)
+        self.tok_begin_vec[tok_begin_idx] = 1.
+
+    def process(self, batch, device=None):
+        return torch.stack([torch.stack(b, 0) for b in batch], 1)
+
+    def preprocess(self, x):
+        return (self.tok_begin_vec,) + x
+
