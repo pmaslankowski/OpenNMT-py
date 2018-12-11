@@ -152,7 +152,8 @@ class Translator(object):
               tgt_path=None,
               tgt_data_iter=None,
               src_dir=None,
-              batch_size=None):
+              batch_size=None,
+              relaxed=False):
         assert src_data_iter is not None or src_path is not None
         if batch_size is None:
             raise ValueError("batch_size must be set")
@@ -169,7 +170,8 @@ class Translator(object):
                           window_stride=self.window_stride,
                           window=self.window,
                           use_filter_pred=self.use_filter_pred,
-                          image_channel_size=self.image_channel_size)
+                          image_channel_size=self.image_channel_size,
+                          relaxed=relaxed)
 
         if self.cuda:
             cur_device = "cuda"
@@ -183,10 +185,10 @@ class Translator(object):
 
         gold_scores = []
         for batch in data_iter:
-            scores = self._run_target(batch, data)
-            gold_scores += [el[0].numpy()[()] for el in sorted(zip(scores, batch.indices.data), key=lambda x: x[1])]
+            scores = self._run_target(batch, data, relaxed=relaxed)
+            gold_scores += [el[0] for el in sorted(zip(scores, batch.indices.data), key=lambda x: x[1])]
 
-        return gold_scores
+        return torch.stack(gold_scores, 0)
 
     def score_probs_for_each_word(self,
               src_path=None,
@@ -782,13 +784,12 @@ class Translator(object):
         _, src_lengths = batch.src
 
         src = inputters.make_features(batch, 'src', data_type)
-        tgt_in = None
         one_hot_encoder = OneHotEncoder(self.fields['tgt'].vocab)
         src = one_hot_encoder.encode(src)
         if not relaxed:
             tgt_in = one_hot_encoder.encode(inputters.make_features(batch, 'tgt')[:-1])
         else:
-            tgt_in = inputters.make_features(batch, 'tgt')
+            tgt_in = inputters.make_features(batch, 'tgt')[:-1,:,:,:]
 
         #  (1) run the encoder on the src
         enc_states, memory_bank, src_lengths \
@@ -803,20 +804,17 @@ class Translator(object):
         next_word_probs = self.model.generator.forward(dec_out[-1])
         return next_word_probs
 
-    def _run_target(self, batch, data):
+    def _run_target(self, batch, data, relaxed=False):
         data_type = data.data_type
-        if data_type == 'text':
-            _, src_lengths = batch.src
-        elif data_type == 'audio':
-            src_lengths = batch.src_lengths
-        else:
-            src_lengths = None
+        _, src_lengths = batch.src
         src = inputters.make_features(batch, 'src', data_type)
-        tgt_in = inputters.make_features(batch, 'tgt')[:-1]
-
+        tgt_in = None
         one_hot_encoder = OneHotEncoder(self.fields['tgt'].vocab)
         src = one_hot_encoder.encode(src)
-        tgt_in = one_hot_encoder.encode(tgt_in)
+        if not relaxed:
+            tgt_in = one_hot_encoder.encode(inputters.make_features(batch, 'tgt')[:-1])
+        else:
+            tgt_in = inputters.make_features(batch, 'tgt')[:-1,:,:,:]
 
         #  (1) run the encoder on the src
         enc_states, memory_bank, src_lengths \
@@ -827,19 +825,27 @@ class Translator(object):
         #  (2) if a target is specified, compute the 'goldScore'
         #  (i.e. log likelihood) of the target under the model
         tt = torch.cuda if self.cuda else torch
-        gold_scores = tt.FloatTensor(batch.batch_size).fill_(0)
+        gold_scores = []
         dec_out, _, _ = self.model.decoder(
             tgt_in, memory_bank, dec_states, memory_lengths=src_lengths)
 
         tgt_pad = self.fields["tgt"].vocab.stoi[inputters.PAD_WORD]
         for dec, tgt in zip(dec_out, batch.tgt[1:].data):
             # Log prob of each word.
-            out = self.model.generator.forward(dec)
-            tgt = tgt.unsqueeze(1)
-            scores = out.data.gather(1, tgt)
-            scores.masked_fill_(tgt.eq(tgt_pad), 0)
-            gold_scores += scores.view(-1)
-        return gold_scores
+            if not relaxed:
+                out = self.model.generator.forward(dec)
+                tgt = tgt.unsqueeze(1)
+                scores = out.data.gather(1, tgt)
+                scores.masked_fill_(tgt.eq(tgt_pad), 0)
+                gold_scores.append(scores)
+            else:
+                out = self.model.generator.forward(dec)
+                tgt = tgt.max(1)[1].unsqueeze(1)
+                scores = out.gather(1, tgt)
+                scores.masked_fill(tgt.eq(tgt_pad), 0)
+                gold_scores.append(scores)
+
+        return torch.sum(torch.cat(gold_scores, 1), 1)
 
     def _run_probabilities_of_all_words_on_target(self, batch, data):
         data_type = data.data_type

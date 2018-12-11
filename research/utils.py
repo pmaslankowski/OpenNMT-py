@@ -103,12 +103,15 @@ class RelaxedTargetField(object):
         self.is_target = True
         vocab_size = 31538
         tok_begin_idx = 2
+        tok_end_idx = 3
         self.tok_begin_vec = torch.zeros(vocab_size)
         self.tok_begin_vec[tok_begin_idx] = 1.
+        self.tok_end_vec = torch.zeros(vocab_size)
+        self.tok_end_vec[tok_end_idx] = 1.
 
     def process(self, batch, device=None):
         return torch.stack([torch.stack(b, 0) for b in batch], 1)
 
     def preprocess(self, x):
-        return (self.tok_begin_vec,) + x
+        return (self.tok_begin_vec,) + x + (self.tok_end_vec,)
 

@@ -50,11 +50,22 @@ if __name__ == '__main__':
     unfinished_translation = 'Ich'
     english_tokens = tokenizer.tokenize(english_sentence)
     german_tokens = tokenizer.tokenize(unfinished_translation)
-    german_vec = torch.zeros(len(vocab.itos), 1)
+    german_vec = np.zeros((len(vocab.itos), 1), dtype='float32')
     german_vec[115,0] = 1.
+    german_vec = torch.tensor(german_vec, requires_grad=True)
 
     next_word_probs = scorer.next_word_probabilities([english_tokens], [german_vec], relaxed=True)
     print(next_word_probs)
 
     next_word_probs2 = scorer.next_word_probabilities([english_tokens], [german_tokens], relaxed=False)
     print(next_word_probs2)
+
+    # relaxation 2:
+    # score = scorer.score_tokenized_texts([english_tokens], [german_tokens], relaxed=False)
+    # print(score)
+    #
+    # score2 = scorer.score_tokenized_texts([english_tokens], [german_vec], relaxed=True)
+    # print(score2)
+    #
+    # score2.backward()
+    # print(german_vec.grad)

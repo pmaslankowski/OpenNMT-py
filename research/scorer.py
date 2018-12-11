@@ -16,10 +16,15 @@ class Scorer(object):
                                        tgt_data_iter=[' '.join(tokenized_german_translation)],
                                        batch_size=consts.OPT.batch_size)
 
-    def score_tokenized_texts(self, english_tok_seq_gen, german_tok_seq_gen):
+    def score_tokenized_texts(self, english_tok_seq_gen, german_tok_seq_gen, relaxed=False):
+        if relaxed:
+            tgt_data = german_tok_seq_gen
+        else:
+            tgt_data = [' '.join(german_tok_seq) for german_tok_seq in german_tok_seq_gen]
         return self.translator.score_target(src_data_iter=[' '.join(english_tok_seq) for english_tok_seq in english_tok_seq_gen],
-                                            tgt_data_iter=[' '.join(german_tok_seq) for german_tok_seq in german_tok_seq_gen],
-                                            batch_size=consts.OPT.batch_size)
+                                            tgt_data_iter=tgt_data,
+                                            batch_size=consts.OPT.batch_size,
+                                            relaxed=relaxed)
 
     def score(self):
         return self.translator.score_target(src_path=consts.OPT.src,
@@ -28,7 +33,6 @@ class Scorer(object):
                              batch_size=consts.OPT.batch_size)
 
     def next_word_probabilities(self, english_tok_seq_gen, german_tok_seq_gen, relaxed=False):
-        tgt_data = None
         if relaxed:
             tgt_data = german_tok_seq_gen
         else:
