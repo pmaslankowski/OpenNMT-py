@@ -17,6 +17,7 @@ import onmt.translate.beam
 import onmt.inputters as inputters
 import onmt.opts as opts
 import onmt.decoders.ensemble
+from research.utils import OneHotEncoder
 
 
 def build_translator(opt, report_score=True, logger=None, out_file=None, create_out_file = True):
@@ -781,6 +782,10 @@ class Translator(object):
         src = inputters.make_features(batch, 'src', data_type)
         tgt_in = inputters.make_features(batch, 'tgt')[:-1]
 
+        one_hot_encoder = OneHotEncoder(self.fields['tgt'].vocab)
+        src = one_hot_encoder.encode(src)
+        tgt_in = one_hot_encoder.encode(tgt_in)
+
         #  (1) run the encoder on the src
         enc_states, memory_bank, src_lengths \
             = self.model.encoder(src, src_lengths)
@@ -804,6 +809,10 @@ class Translator(object):
             src_lengths = None
         src = inputters.make_features(batch, 'src', data_type)
         tgt_in = inputters.make_features(batch, 'tgt')[:-1]
+
+        one_hot_encoder = OneHotEncoder(self.fields['tgt'].vocab)
+        src = one_hot_encoder.encode(src)
+        tgt_in = one_hot_encoder.encode(tgt_in)
 
         #  (1) run the encoder on the src
         enc_states, memory_bank, src_lengths \
@@ -834,6 +843,10 @@ class Translator(object):
 
         src = inputters.make_features(batch, 'src', data_type)
         tgt_in = inputters.make_features(batch, 'tgt')[:-1]
+
+        one_hot_encoder = OneHotEncoder(self.fields['tgt'].vocab)
+        src = one_hot_encoder.encode(src)
+        tgt_in = one_hot_encoder.encode(tgt_in)
 
         #  (1) run the encoder on the src
         enc_states, memory_bank, src_lengths \

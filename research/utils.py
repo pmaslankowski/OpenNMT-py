@@ -2,6 +2,7 @@ import argparse
 import onmt
 import onmt.opts as opts
 import sentencepiece as spm
+import torch
 from copy import deepcopy
 from research import consts
 
@@ -81,4 +82,17 @@ class Aligner(object):
             print(f'Ops: ', ' '.join(ops))
 
         return res1, res2
+
+
+class OneHotEncoder(object):
+
+    def __init__(self, vocab):
+        self.vocab = vocab
+
+    def encode(self, X):
+        length, batch_size, code_size = X.shape
+        res = torch.FloatTensor(length, batch_size, 1, len(self.vocab.itos))
+        res.zero_()
+        res.scatter_(3, X.unsqueeze(2), 1)
+        return res
 

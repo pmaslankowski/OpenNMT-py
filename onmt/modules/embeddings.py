@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 
 from onmt.modules.util_class import Elementwise
+from research.WeightedEmbedding import WeightedEmbedding
 
 
 class PositionalEncoding(nn.Module):
@@ -124,7 +125,7 @@ class Embeddings(nn.Module):
         # The embedding matrix look-up tables. The first look-up table
         # is for words. Subsequent ones are for features, if any exist.
         emb_params = zip(vocab_sizes, emb_dims, pad_indices)
-        embeddings = [nn.Embedding(vocab, dim, padding_idx=pad, sparse=sparse)
+        embeddings = [WeightedEmbedding(vocab, dim, padding_idx=pad, sparse=sparse)
                       for vocab, dim, pad in emb_params]
         emb_luts = Elementwise(feat_merge, embeddings)
 

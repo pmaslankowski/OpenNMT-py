@@ -175,8 +175,10 @@ class TransformerDecoder(nn.Module):
         See :obj:`onmt.modules.RNNDecoderBase.forward()`
         """
         src = state.src
-        src_words = src[:, :, 0].transpose(0, 1)
-        tgt_words = tgt[:, :, 0].transpose(0, 1)
+        src_inds = src.max(3)[1]
+        tgt_inds = tgt.max(3)[1]
+        src_words = src_inds[:, :, 0].transpose(0, 1)
+        tgt_words = tgt_inds[:, :, 0].transpose(0, 1)
         src_batch, src_len = src_words.size()
         tgt_batch, tgt_len = tgt_words.size()
 

@@ -97,12 +97,13 @@ class TransformerEncoder(EncoderBase):
 
     def forward(self, src, lengths=None):
         """ See :obj:`EncoderBase.forward()`"""
-        self._check_args(src, lengths)
+        #self._check_args(src, lengths)
 
         emb = self.embeddings(src)
 
         out = emb.transpose(0, 1).contiguous()
-        words = src[:, :, 0].transpose(0, 1)
+        src_ind = src.max(3)[1]
+        words = src_ind[:, :, 0].transpose(0, 1)
         w_batch, w_len = words.size()
         padding_idx = self.embeddings.word_padding_idx
         mask = words.data.eq(padding_idx).unsqueeze(1) \
