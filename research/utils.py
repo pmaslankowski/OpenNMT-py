@@ -1,4 +1,6 @@
 import argparse
+import re
+import subprocess
 import onmt
 import onmt.opts as opts
 import sentencepiece as spm
@@ -17,6 +19,19 @@ def load_vocabulary():
 
     return fields['tgt'].vocab
 
+BLEU_SCRIPT_PATH = '/home/pma/Dropbox/Documents/Studia/Semestr_7/Praca_Inzynierska/OpenNMT-py/tools/multi-bleu.perl'
+def bleu(translation, reference):
+    with open('tmp.de', 'w+') as f:
+        f.write(reference)
+
+    process = subprocess.Popen(['perl', BLEU_SCRIPT_PATH, 'tmp.de'], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+    process.stdin.write(translation.encode('utf-8'))
+    process.stdin.close()
+
+    output = process.stdout.read().decode('utf-8')
+    res = re.match('^BLEU = (.*?),', output).group(1)
+    return float(res)
+
 
 class Tokenizer(object):
 
@@ -26,6 +41,9 @@ class Tokenizer(object):
 
     def tokenize(self, text):
         return self.sentencepiece_tokenizer.EncodeAsPieces(text)
+
+    def detokenize(self, tokens):
+        return self.sentencepiece_tokenizer.DecodePieces(tokens)
 
 
 class Aligner(object):
@@ -89,11 +107,11 @@ class OneHotEncoder(object):
     def __init__(self, vocab):
         self.vocab = vocab
 
-    def encode(self, X):
+    def encode(self, X, v=1.):
         length, batch_size, code_size = X.shape
         res = torch.FloatTensor(length, batch_size, 1, len(self.vocab.itos))
         res.zero_()
-        res.scatter_(3, X.unsqueeze(2), 1)
+        res.scatter_(3, X.unsqueeze(2), v)
         return res
 
 

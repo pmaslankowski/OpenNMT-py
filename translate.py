@@ -12,12 +12,6 @@ from onmt.utils.logging import init_logger
 
 def main(opt):
     translator = build_translator(opt, report_score=True)
-    scores = translator.score_target(src_path=opt.src,
-                         tgt_path=opt.tgt,
-                         src_dir=opt.src_dir,
-                         batch_size=opt.batch_size)
-    print(scores)
-
     translator.translate(src_path=opt.src,
                          tgt_path=opt.tgt,
                          src_dir=opt.src_dir,

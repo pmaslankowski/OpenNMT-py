@@ -7,7 +7,7 @@ class BeamOptimizer(BaseOptimizer):
 
     def __init__(self, english_text, n_beams=10):
         super().__init__(english_text)
-        self.max_steps = 1000
+        self.max_steps = 50
         self.n_beams = n_beams
         self.vocab.itos = np.array(self.vocab.itos)
         self.EOS = self.vocab.stoi['</s>']

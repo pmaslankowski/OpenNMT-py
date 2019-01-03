@@ -23,5 +23,14 @@ class TestAligner(unittest.TestCase):
         self.assertEqual(expected2, res2)
 
 
+class TestBleu(unittest.TestCase):
+
+    def test_bleu(self):
+        translation = '▁Ein - jährige - O ld - ▁Ge ▁Dead'
+        reference = '▁28 - jährige r ▁Koch ▁in ▁San ▁Francisco ▁Mal l ▁to t ▁auf gefunden'
+        expected = 0.0
+
+        self.assertEquals(expected, bleu(reference, translation))
+
 if __name__ == '__main__':
     unittest.main()

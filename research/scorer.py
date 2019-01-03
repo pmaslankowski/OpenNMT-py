@@ -16,7 +16,7 @@ class Scorer(object):
                                        tgt_data_iter=[' '.join(tokenized_german_translation)],
                                        batch_size=consts.OPT.batch_size)
 
-    def score_tokenized_texts(self, english_tok_seq_gen, german_tok_seq_gen, relaxed=False):
+    def score_tokenized_texts(self, english_tok_seq_gen, german_tok_seq_gen, relaxed=False, method='max'):
         if relaxed:
             tgt_data = german_tok_seq_gen
         else:
@@ -24,7 +24,7 @@ class Scorer(object):
         return self.translator.score_target(src_data_iter=[' '.join(english_tok_seq) for english_tok_seq in english_tok_seq_gen],
                                             tgt_data_iter=tgt_data,
                                             batch_size=consts.OPT.batch_size,
-                                            relaxed=relaxed)
+                                            relaxed=relaxed, method=method)
 
     def score(self):
         return self.translator.score_target(src_path=consts.OPT.src,

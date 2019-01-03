@@ -13,7 +13,7 @@ import torchtext
 from onmt.inputters.dataset_base import (DatasetBase, UNK_WORD,
                                          PAD_WORD, BOS_WORD, EOS_WORD)
 from onmt.utils.misc import aeq
-from research.utils import RelaxedTargetField
+import research.utils
 
 
 class TextDataset(DatasetBase):
@@ -69,10 +69,12 @@ class TextDataset(DatasetBase):
 
         out_fields = [(k, fields[k]) if k in fields else (k, None)
                       for k in keys if k != 'tgt']
-        if not relaxed:
-            out_fields.append(('tgt', fields['tgt'] if 'tgt' in fields else None))
-        else:
-            out_fields.append(('tgt', RelaxedTargetField()))
+
+        if 'tgt' in keys:
+            if not relaxed:
+                out_fields.append(('tgt', fields['tgt'] if 'tgt' in fields else None))
+            else:
+                out_fields.append(('tgt', research.utils.RelaxedTargetField()))
 
         out_fields.sort(key=lambda x: x[0])
         keys.sort()
