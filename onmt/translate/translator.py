@@ -154,7 +154,8 @@ class Translator(object):
               src_dir=None,
               batch_size=None,
               relaxed=False,
-              method='max'):
+              method='max',
+              normalize=False):
         assert src_data_iter is not None or src_path is not None
         if batch_size is None:
             raise ValueError("batch_size must be set")
@@ -186,7 +187,7 @@ class Translator(object):
 
         gold_scores = []
         for batch in data_iter:
-            scores = self._run_target(batch, data, relaxed=relaxed, method=method)
+            scores = self._run_target(batch, data, relaxed=relaxed, method=method, normalize=normalize)
             gold_scores += [el[0] for el in sorted(zip(scores, batch.indices.data), key=lambda x: x[1])]
 
         return torch.stack(gold_scores, 0)
@@ -805,7 +806,7 @@ class Translator(object):
         next_word_probs = self.model.generator.forward(dec_out[-1])
         return next_word_probs
 
-    def _run_target(self, batch, data, relaxed=False, method='max'):
+    def _run_target(self, batch, data, relaxed=False, method='max', normalize=False):
         data_type = data.data_type
         _, src_lengths = batch.src
         src = inputters.make_features(batch, 'src', data_type)
@@ -842,15 +843,21 @@ class Translator(object):
             else:
                 out = self.model.generator.forward(dec)
                 if method == 'cross_entropy':
+                    # prawdopodobnie to nie działa tak jak myślę, lepiej używać iloczynu
                     scores = torch.sum(torch.exp(out) * tgt, 1).unsqueeze(1)
+                    gold_scores.append(scores)
+                elif method == 'multiplication':
+                    scores = out * tgt
                     gold_scores.append(scores)
                 else:
                     tgt = tgt.max(1)[1].unsqueeze(1)
                     scores = out.gather(1, tgt)
                     scores.masked_fill(tgt.eq(tgt_pad), 0)
                     gold_scores.append(scores)
-
-        return torch.sum(torch.cat(gold_scores, 1), 1) / torch.sum(torch.sum(src ** 2, 3), 0).squeeze()
+        if normalize:
+            return torch.sum(torch.cat(gold_scores, 1), 1) / torch.sum(torch.sum(src ** 2, 3), 0).squeeze()
+        else:
+            return torch.sum(torch.cat(gold_scores, 1), 1)
 
     def _run_probabilities_of_all_words_on_target(self, batch, data):
         data_type = data.data_type

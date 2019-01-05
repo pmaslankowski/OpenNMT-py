@@ -21,23 +21,31 @@ class ContinuousOptimizer(BaseOptimizer):
         else:
             R = Variable(torch.ones(self.vocab_size, 2*L), requires_grad=True)
 
-        lr = 100
+        lr = 50
         prev_score = 1000000.
-        for t in range(100):
+        iters = 50
+        line_search_iters = 10
+        for t in range(iters):
             Y = F.softmax(R, 0)
-            score = -self.scorer.score_tokenized_texts([self.english_tok_seq], [Y], relaxed=True, method=method)
+            score = -self.scorer.score_tokenized_texts([self.english_tok_seq], [Y], relaxed=True, method=method, normalize=True)
             compute_grad = True
             if score < prev_score:
-                lr *= 0.99
+                lr *= 0.95
             else:
                 score = prev_score
                 R = prev_R
                 R.grad = prev_grad
-                lr *= 0.6
+                lr *= 0.5
                 compute_grad = False
 
             if verbose:
-                print('Score at step ', t, "=", score, 'max grad component =', R.grad.max() if R.grad is not None else '', 'lr = ', lr)
+                print('Step', t, ', loss score = ', score, 'max grad component =', R.grad.max().item() if R.grad is not None else '', 'lr = ', lr)
+                print('\t cscore = ', -self.scorer.score_tokenized_texts([self.english_tok_seq], [Y], relaxed=True, method=method, normalize=True))
+                I = torch.max(Y, 0)
+                translation = list([self.vocab.itos[i] for i in I[1]])
+                print('\tdscore = ', -self.scorer.score_tokenized_texts([self.english_tok_seq], [translation], method=method, normalize=True))
+                print(' '.join(translation))
+                print()
 
             if compute_grad:
                 score.backward()
@@ -54,9 +62,11 @@ class ContinuousOptimizer(BaseOptimizer):
 
         Y = F.softmax(R, 0)
         I = torch.max(Y, 0)
+        translation = list([self.vocab.itos[i] for i in I[1]])
         if verbose:
             print('Max(Y) = ', I[0])
+            print('Final dscore', -self.scorer.score_tokenized_texts([self.english_tok_seq], [translation], relaxed=False, method=method))
         if with_score:
-            return list([self.vocab.itos[i] for i in I[1]]), score
+            return translation, score
 
-        return list([self.vocab.itos[i] for i in I[1]])
+        return translation
