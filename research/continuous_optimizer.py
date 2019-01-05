@@ -14,23 +14,22 @@ class ContinuousOptimizer(BaseOptimizer):
         self.EOS = self.vocab.stoi['</s>']
         self.gamma = 0.3
 
-    def optimize(self, init=None, method='max', verbose=False, with_score=False):
+    def optimize(self, init=None, method='max', verbose=False, with_score=False, start_lr=100):
         L = len(self.english_tok_seq)
         if init is not None:
             R = Variable(init, requires_grad=True)
         else:
             R = Variable(torch.ones(self.vocab_size, 2*L), requires_grad=True)
 
-        lr = 50
+        lr = start_lr
         prev_score = 1000000.
-        iters = 50
-        line_search_iters = 10
+        iters = 60
         for t in range(iters):
             Y = F.softmax(R, 0)
             score = -self.scorer.score_tokenized_texts([self.english_tok_seq], [Y], relaxed=True, method=method, normalize=True)
             compute_grad = True
             if score < prev_score:
-                lr *= 0.95
+                lr = start_lr
             else:
                 score = prev_score
                 R = prev_R
