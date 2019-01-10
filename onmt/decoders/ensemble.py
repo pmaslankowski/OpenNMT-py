@@ -132,7 +132,7 @@ class EnsembleModel(NMTModel):
         self.models = nn.ModuleList(models)
 
 
-def load_test_model(opt, dummy_opt):
+def load_test_model(opt, dummy_opt, temperature=1.0):
     """ Read in multiple models for ensemble """
     shared_fields = None
     shared_model_opt = None
@@ -141,7 +141,7 @@ def load_test_model(opt, dummy_opt):
         fields, model, model_opt = \
             onmt.model_builder.load_test_model(opt,
                                                dummy_opt,
-                                               model_path=model_path)
+                                               model_path=model_path,  temperature=temperature)
         if shared_fields is None:
             shared_fields = fields
         else:

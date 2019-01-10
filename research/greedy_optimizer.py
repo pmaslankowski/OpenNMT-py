@@ -3,8 +3,8 @@ from research.base_optimizer import BaseOptimizer
 
 class GreedyOptimizer(BaseOptimizer):
 
-    def __init__(self, english_text):
-        super().__init__(english_text)
+    def __init__(self, english_text, temperature=1.0):
+        super().__init__(english_text, temperature=temperature)
         self.max_steps = 1000
 
     def optimize(self):

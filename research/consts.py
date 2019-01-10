@@ -17,5 +17,6 @@ OPT = AttrDict({
             'max_sent_length': None, 'stepwise_penalty': False, 'length_penalty': 'none', 'coverage_penalty': 'none',
             'alpha': 0.0, 'beta': -0.0, 'block_ngram_repeat': 0, 'ignore_when_blocking': [], 'replace_unk': False,
             'verbose': True, 'log_file': '', 'attn_debug': False, 'dump_beam': '', 'n_best': 1, 'batch_size': 100, 'gpu': -1,
-            'sample_rate': 16000, 'window_size': 0.02, 'window_stride': 0.01, 'window': 'hamming', 'image_channel_size': 3
+            'sample_rate': 16000, 'window_size': 0.02, 'window_stride': 0.01, 'window': 'hamming', 'image_channel_size': 3,
+            'temperature': 1.0, 'generator_function': 'temperature'
         })

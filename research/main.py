@@ -10,12 +10,13 @@ from research.scorer import Scorer
 from research.utils import load_vocabulary, Tokenizer, OneHotEncoder
 
 if __name__ == '__main__':
-    vocab = load_vocabulary()
+    temperature = 1.0
+    vocab = load_vocabulary(temperature=temperature)
     tokenizer = Tokenizer()
-    scorer = Scorer()
+    scorer = Scorer(temperature=temperature)
     one_hot_encoder = OneHotEncoder(vocab)
 
-    english_sentence = 'I think that machine translation is a very interesting subject.'
+    english_sentence = 'But the victim\'s brother says he can\'t think of anyone who would want to hurt him, saying, "Things were finally going well for him."'
     german_translation_from_google = 'Ich glaube, dass maschinelle Übersetzung ein sehr interessantes Thema ist.'
     #
     # score = scorer.score_texts(english_sentence, german_translation_from_google)
@@ -34,20 +35,20 @@ if __name__ == '__main__':
     # print('Top 3 next tokens: ', vocab.itos[ind[0,0].view(-1)], vocab.itos[ind[0,1].view(-1)], vocab.itos[ind[0,2].view(-1)])
 
 
-    greedy_opt = GreedyOptimizer(english_sentence)
+    greedy_opt = GreedyOptimizer(english_sentence, temperature=temperature)
     german_tok = greedy_opt.optimize()[:-1]
     print(german_tok)
     print(len(german_tok))
     english_tok = tokenizer.tokenize(english_sentence)
     #german_vecs = one_hot_encoder.encode(torch.tensor([[[vocab.stoi[tok] for tok in german_tok]]]).transpose(0, 2), v=1000.).squeeze().transpose(0, 1)
-    print(-scorer.score_tokenized_texts([english_tok], [german_tok], relaxed=False, method='multiplication', normalize=True))
-    german_probs = scorer.score_probabilities_for_each_word(english_tok, german_tok)
+    print(-scorer.score_tokenized_texts([english_tok], [german_tok], relaxed=False, method='multiplication', normalize=False))
+    # german_probs = scorer.score_probabilities_for_each_word(english_tok, german_tok)
     #uwaga - przy zmianie zdania trzeba zmienić długość
-    german_probs = torch.tensor(german_probs[:16, :].T)
+    # german_probs = torch.tensor(german_probs[:-1, :].T)
     
-    optimizer = ContinuousOptimizer(english_sentence)
+    optimizer = BeamOptimizer(english_sentence, n_beams=20)
     print('Optimization starts...')
-    res = optimizer.optimize(init=german_probs, method='multiplication', verbose=True)
+    res = optimizer.optimize()
     print(res)
 
 

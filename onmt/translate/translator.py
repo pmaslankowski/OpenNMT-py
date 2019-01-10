@@ -20,7 +20,7 @@ import onmt.decoders.ensemble
 from research.utils import OneHotEncoder
 
 
-def build_translator(opt, report_score=True, logger=None, out_file=None, create_out_file = True):
+def build_translator(opt, report_score=True, logger=None, out_file=None, create_out_file = True, temperature=1.0):
     if out_file is None and create_out_file:
         out_file = codecs.open(opt.output, 'w+', 'utf-8')
 
@@ -31,10 +31,10 @@ def build_translator(opt, report_score=True, logger=None, out_file=None, create_
     if len(opt.models) > 1:
         # use ensemble decoding if more than one model is specified
         fields, model, model_opt = \
-            onmt.decoders.ensemble.load_test_model(opt, dummy_opt.__dict__)
+            onmt.decoders.ensemble.load_test_model(opt, dummy_opt.__dict__, temperature=temperature)
     else:
         fields, model, model_opt = \
-            onmt.model_builder.load_test_model(opt, dummy_opt.__dict__)
+            onmt.model_builder.load_test_model(opt, dummy_opt.__dict__, temperature=temperature)
 
     scorer = onmt.translate.GNMTGlobalScorer(opt.alpha,
                                              opt.beta,

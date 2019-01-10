@@ -5,9 +5,9 @@ from research.utils import Tokenizer
 
 class Scorer(object):
 
-    def __init__(self):
+    def __init__(self, temperature=1.0):
         self.tokenizer = Tokenizer()
-        self.translator = build_translator(consts.OPT, report_score=True, create_out_file=False)
+        self.translator = build_translator(consts.OPT, report_score=True, create_out_file=False, temperature=temperature)
 
     def score_texts(self, english_text, german_translation):
         tokenized_english_text = self.tokenizer.tokenize(english_text)

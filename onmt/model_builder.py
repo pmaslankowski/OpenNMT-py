@@ -23,6 +23,7 @@ from onmt.decoders.cnn_decoder import CNNDecoder
 from onmt.modules import Embeddings, CopyGenerator
 from onmt.utils.misc import use_gpu
 from onmt.utils.logging import logger
+from research.utils import LogSoftmaxWithTemperature
 
 
 def build_embeddings(opt, word_dict, feature_dicts, for_encoder=True):
@@ -126,7 +127,7 @@ def build_decoder(opt, embeddings):
                              opt.reuse_copy_attn)
 
 
-def load_test_model(opt, dummy_opt, model_path=None):
+def load_test_model(opt, dummy_opt, model_path=None, temperature=1.0):
     if model_path is None:
         model_path = opt.models[0]
     checkpoint = torch.load(model_path,
@@ -145,13 +146,13 @@ def load_test_model(opt, dummy_opt, model_path=None):
     for arg in dummy_opt:
         if arg not in model_opt:
             model_opt.__dict__[arg] = dummy_opt[arg]
-    model = build_base_model(model_opt, fields, use_gpu(opt), checkpoint)
+    model = build_base_model(model_opt, fields, use_gpu(opt), checkpoint, temperature=temperature)
     model.eval()
     model.generator.eval()
     return fields, model, model_opt
 
 
-def build_base_model(model_opt, fields, gpu, checkpoint=None):
+def build_base_model(model_opt, fields, gpu, checkpoint=None, temperature=1.):
     """
     Args:
         model_opt: the option loaded from checkpoint.
@@ -220,7 +221,7 @@ def build_base_model(model_opt, fields, gpu, checkpoint=None):
         if model_opt.generator_function == "sparsemax":
             gen_func = onmt.modules.sparse_activations.LogSparsemax(dim=-1)
         else:
-            gen_func = nn.LogSoftmax(dim=-1)
+            gen_func = LogSoftmaxWithTemperature(dim=-1, T=temperature)
         generator = nn.Sequential(
             nn.Linear(model_opt.dec_rnn_size, len(fields["tgt"].vocab)),
             gen_func

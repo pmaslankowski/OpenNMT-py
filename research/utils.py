@@ -9,13 +9,13 @@ from copy import deepcopy
 from research import consts
 
 
-def load_vocabulary():
+def load_vocabulary(temperature=1.0):
     dummy_parser = argparse.ArgumentParser(description='train.py')
     opts.model_opts(dummy_parser)
     dummy_opt = dummy_parser.parse_known_args([])[0]
 
     fields, _, _ = \
-        onmt.model_builder.load_test_model(consts.OPT, dummy_opt.__dict__)
+        onmt.model_builder.load_test_model(consts.OPT, dummy_opt.__dict__, temperature=temperature)
 
     return fields['tgt'].vocab
 
@@ -132,4 +132,15 @@ class RelaxedTargetField(object):
 
     def preprocess(self, x):
         return (self.tok_begin_vec,) + x + (self.tok_end_vec,)
+
+
+class LogSoftmaxWithTemperature(torch.nn.Module):
+
+    def __init__(self, dim, T=1.0):
+        super(LogSoftmaxWithTemperature, self).__init__()
+        self.logsoftmax = torch.nn.LogSoftmax(dim)
+        self.T = T
+
+    def forward(self, x):
+        return self.logsoftmax(x / self.T)
 
