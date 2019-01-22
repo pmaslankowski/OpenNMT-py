@@ -14,26 +14,54 @@ class ExponentiatedGradientOptimizer(BaseOptimizer):
         self.EOS = self.vocab.stoi['</s>']
         self.gamma = 0.3
 
-    def optimize(self, init=None, method='max', lr=100, verbose=False, with_score=False):
+    def optimize(self, init=None, method='multiplication', start_lr=1.0, verbose=False, with_score=False):
         L = len(self.english_tok_seq)
-        # źle się inicjalizuje - muszę to znormalizować z zachowaniem maksimum
         if init is not None:
-            Y = Variable(init / torch.sum(init, 0).unsqueeze(0), requires_grad=True)
+            Y = Variable(torch.exp(init), requires_grad=True)
         else:
             Y = Variable(torch.ones(self.vocab_size, 2*L), requires_grad=True)
 
+        lr = start_lr
+        prev_score = 1000000.
         for t in range(10):
+            if lr < 10e-6:
+                break
+
             score = -self.scorer.score_tokenized_texts([self.english_tok_seq], [Y], relaxed=True, method=method)
-            score.backward()
+
+            compute_grad = True
+            if score < prev_score:
+                lr = start_lr
+            else:
+                score = prev_score
+                Y = prev_Y.clone()
+                Y.grad = prev_grad.clone()
+                lr *= 0.5
+                compute_grad = False
 
             if verbose:
                 print('Score at step ', t, "=", score, 'max grad component =', Y.grad.max() if Y.grad is not None else '', 'lr = ', lr)
+                print('\t cscore = ', -self.scorer.score_tokenized_texts([self.english_tok_seq], [Y], relaxed=True, method=method, normalize=True))
+                I = torch.max(Y, 0)
+                translation = list([self.vocab.itos[i] for i in I[1]])
+                print('\tdscore = ', -self.scorer.score_tokenized_texts([self.english_tok_seq], [translation], method=method, normalize=True))
+                print(' '.join(translation))
+                print()
+
+            if compute_grad:
+                score.backward()
+                prev_Y = Y.clone()
+                prev_grad = Y.grad.clone()
+                prev_score = score
 
             with torch.no_grad():
-                Y *= torch.exp(-lr * Y.grad) #/ torch.sum(torch.exp(lr*Y.grad), 0).unsqueeze(0)
-                Y /= torch.sum(Y, 0).unsqueeze(0)
-                Y.grad.zero_()
-
+                if compute_grad:
+                    Y *= torch.exp(-lr * Y.grad)
+                    Y /= torch.sum(Y, 0).unsqueeze(0)
+                    Y.grad.zero_()
+                else:
+                    Y *= torch.exp(-lr * prev_grad)
+                    Y /= torch.sum(Y, 0).unsqueeze(0)
 
         I = torch.max(Y, 0)
         if verbose:

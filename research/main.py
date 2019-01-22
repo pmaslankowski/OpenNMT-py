@@ -42,13 +42,13 @@ if __name__ == '__main__':
     english_tok = tokenizer.tokenize(english_sentence)
     #german_vecs = one_hot_encoder.encode(torch.tensor([[[vocab.stoi[tok] for tok in german_tok]]]).transpose(0, 2), v=1000.).squeeze().transpose(0, 1)
     print(-scorer.score_tokenized_texts([english_tok], [german_tok], relaxed=False, method='multiplication', normalize=False))
-    # german_probs = scorer.score_probabilities_for_each_word(english_tok, german_tok)
+    german_probs = scorer.score_probabilities_for_each_word(english_tok, german_tok)
     #uwaga - przy zmianie zdania trzeba zmienić długość
-    # german_probs = torch.tensor(german_probs[:-1, :].T)
+    german_probs = torch.tensor(german_probs[:-1, :].T)
     
-    optimizer = BeamOptimizer(english_sentence, n_beams=20)
+    optimizer = ExponentiatedGradientOptimizer(english_sentence)
     print('Optimization starts...')
-    res = optimizer.optimize()
+    res = optimizer.optimize(init=german_probs, verbose=True)
     print(res)
 
 
