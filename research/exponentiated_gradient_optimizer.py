@@ -7,14 +7,14 @@ from research.base_optimizer import BaseOptimizer
 
 class ExponentiatedGradientOptimizer(BaseOptimizer):
 
-    def __init__(self, english_text):
-        super().__init__(english_text)
+    def __init__(self, english_text, temperature=1.0):
+        super().__init__(english_text, temperature=temperature)
         self.max_steps = 1000
         self.vocab.itos = np.array(self.vocab.itos)
         self.EOS = self.vocab.stoi['</s>']
         self.gamma = 0.3
 
-    def optimize(self, init=None, method='multiplication', start_lr=1.0, verbose=False, with_score=False):
+    def optimize(self, init=None, method='multiplication', start_lr=0.2, verbose=False, with_score=False):
         L = len(self.english_tok_seq)
         if init is not None:
             Y = Variable(torch.exp(init), requires_grad=True)
@@ -23,7 +23,7 @@ class ExponentiatedGradientOptimizer(BaseOptimizer):
 
         lr = start_lr
         prev_score = 1000000.
-        for t in range(10):
+        for t in range(100):
             if lr < 10e-6:
                 break
 

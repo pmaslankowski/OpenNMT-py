@@ -16,7 +16,7 @@ if __name__ == '__main__':
     scorer = Scorer(temperature=temperature)
     one_hot_encoder = OneHotEncoder(vocab)
 
-    english_sentence = 'But the victim\'s brother says he can\'t think of anyone who would want to hurt him, saying, "Things were finally going well for him."'
+    english_sentence = "The victim's brother, Louis Galicia, told ABC station KGO in San Francisco that Frank, previously a line cook in Boston, had landed his dream job as line chef at San Francisco's Sons & Daughters restaurant six months ago."
     german_translation_from_google = 'Ich glaube, dass maschinelle Übersetzung ein sehr interessantes Thema ist.'
     #
     # score = scorer.score_texts(english_sentence, german_translation_from_google)
@@ -35,7 +35,7 @@ if __name__ == '__main__':
     # print('Top 3 next tokens: ', vocab.itos[ind[0,0].view(-1)], vocab.itos[ind[0,1].view(-1)], vocab.itos[ind[0,2].view(-1)])
 
 
-    greedy_opt = GreedyOptimizer(english_sentence, temperature=temperature)
+    greedy_opt = BeamOptimizer(english_sentence, n_beams=1, temperature=temperature)
     german_tok = greedy_opt.optimize()[:-1]
     print(german_tok)
     print(len(german_tok))
